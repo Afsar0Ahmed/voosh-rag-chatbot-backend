@@ -7,42 +7,28 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-let cachedModel = null;
+// 🔑 Model comes from env (no hardcoding)
+const MODEL = process.env.GROQ_MODEL;
 
-async function getAvailableModel() {
-  if (cachedModel) return cachedModel;
-
-  const models = await groq.models.list();
-
-  // pick the first chat-capable model
-  const chatModel = models.data.find(
-    (m) => m.id.includes("chat") || m.id.includes("instruct")
-  );
-
-  if (!chatModel) {
-    throw new Error("No usable Groq chat model available for this account");
-  }
-
-  cachedModel = chatModel.id;
-  console.log("✅ Using Groq model:", cachedModel);
-
-  return cachedModel;
+if (!MODEL) {
+  throw new Error("❌ GROQ_MODEL is not set in environment variables");
 }
 
 export async function generateLLMResponse(prompt) {
   if (!prompt) return "Error: prompt is empty.";
 
   try {
-    const model = await getAvailableModel();
-
     const completion = await groq.chat.completions.create({
-      model,
+      model: MODEL,
       messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
     });
 
     return completion.choices[0].message.content;
   } catch (error) {
-    console.error("❌ Groq FINAL error:", error.message);
-    return "⚠️ No available Groq model. Check Groq console.";
+    console.error("❌ Groq API error:", error.response?.data || error.message);
+    return "⚠️ Error generating response from Groq.";
   }
 }
+const models = await groq.models.list();
+console.log(models.data.map(m => m.id));
